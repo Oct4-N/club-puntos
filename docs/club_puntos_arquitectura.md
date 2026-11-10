@@ -6,21 +6,21 @@ Complementa a `club_puntos_spec.md` (qué hace la app). Acá se define **cómo**
 
 Web app **local**: un servidor chico corre en la PC del local, guarda todo en un archivo SQLite y se usa desde el navegador en `localhost`. Se abre con un acceso directo que lo muestra como ventana de programa (sin barra de direcciones). Todo en TypeScript, una sola herramienta (Node).
 
-| Capa | Tecnología |
-|---|---|
-| Frontend | React + TypeScript (strict) + Vite + Tailwind CSS |
-| Íconos | lucide-react |
-| Servidor | Node (versión fija, ver 1.1) con **Fastify** + TypeScript |
-| Base de datos | SQLite con `better-sqlite3` (síncrono, simple, soporta backup consistente) |
-| Validación | Zod, esquemas definidos **una sola vez** en el paquete `shared` y usados por servidor y frontend |
-| Sesiones | `@fastify/cookie` + sesiones en memoria del servidor |
-| Contraseña | `crypto.scrypt` de Node (sin dependencias extra) |
-| Tests | Vitest (reglas de puntos y API con SQLite en memoria) |
-| Empaquetado | Carpeta portable con Node incluido + `iniciar.bat` |
+| Capa          | Tecnología                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| Frontend      | React + TypeScript (strict) + Vite + Tailwind CSS                                                |
+| Íconos        | lucide-react                                                                                     |
+| Servidor      | Node (versión fija, ver 1.1) con **Fastify** + TypeScript                                        |
+| Base de datos | SQLite con `better-sqlite3` (síncrono, simple, soporta backup consistente)                       |
+| Validación    | Zod, esquemas definidos **una sola vez** en el paquete `shared` y usados por servidor y frontend |
+| Sesiones      | `@fastify/cookie` + sesiones en memoria del servidor                                             |
+| Contraseña    | `crypto.scrypt` de Node (sin dependencias extra)                                                 |
+| Tests         | Vitest (reglas de puntos y API con SQLite en memoria)                                            |
+| Empaquetado   | Carpeta portable con Node incluido + `iniciar.bat`                                               |
 
 ### 1.1 Versiones y dependencias
 
-- Fijar la versión **exacta** de Node en `.nvmrc` y en `engines` del `package.json` raíz (Node 22 LTS). La misma versión se usa en desarrollo, en tests y en el `node.exe` de la carpeta portable.
+- Fijar la versión **exacta** de Node en `.nvmrc` y en `engines` del `package.json` raíz (Node 24 LTS, 24.21.0). La misma versión se usa en desarrollo, en tests y en el `node.exe` de la carpeta portable.
 - `better-sqlite3` es un módulo nativo: en la carpeta portable hace falta su binario precompilado para **Windows x64** y esa misma versión de Node. La Etapa 0 debe comprobar que instala y abre una base en la máquina de desarrollo.
 - No agregar dependencias que no estén en esta tabla sin avisar y justificar. Preferir lo que ya trae Node o el framework.
 
@@ -46,6 +46,7 @@ Web app **local**: un servidor chico corre en la PC del local, guarda todo en un
 ```
 
 Principios:
+
 - El servidor es la **única** puerta a la base. El frontend nunca toca el archivo.
 - Las reglas de puntos viven en funciones puras (`pointsRules.ts`) con tests; la API solo las llama dentro de una transacción.
 - El archivo vivo (`data/puntos.db`) **no** está dentro de la carpeta de Drive; a Drive solo van **copias fechadas**.
@@ -175,17 +176,17 @@ CREATE TABLE settings (
 
 Los valores se guardan como texto; los booleanos como `'1'` / `'0'`. La migración `0001` inserta los valores por defecto. `services/settings.ts` los lee y escribe con tipos.
 
-| Clave | Valor por defecto | Significado |
-|---|---|---|
-| `can_redeem_product` | `'1'` | Canje por producto activado |
-| `can_redeem_discount` | `'0'` | Canje como descuento activado |
-| `point_value_pesos` | `''` | Valor de un punto en pesos entero; vacío = sin cargar |
-| `allow_combined_redemptions` | `'0'` | Permite producto + descuento en una operación |
-| `backup_dir` | `''` | Carpeta de backups; vacío = `data/backups/` |
-| `last_backup_at` | `''` | Fecha y hora del último backup exitoso |
-| `last_backup_error` | `''` | Mensaje del último fallo; vacío si el último salió bien |
-| `username` | *(no existe hasta el setup inicial)* | Nombre de usuario |
-| `password_hash` | *(no existe hasta el setup inicial)* | `scrypt` con sal |
+| Clave                        | Valor por defecto                    | Significado                                             |
+| ---------------------------- | ------------------------------------ | ------------------------------------------------------- |
+| `can_redeem_product`         | `'1'`                                | Canje por producto activado                             |
+| `can_redeem_discount`        | `'0'`                                | Canje como descuento activado                           |
+| `point_value_pesos`          | `''`                                 | Valor de un punto en pesos entero; vacío = sin cargar   |
+| `allow_combined_redemptions` | `'0'`                                | Permite producto + descuento en una operación           |
+| `backup_dir`                 | `''`                                 | Carpeta de backups; vacío = `data/backups/`             |
+| `last_backup_at`             | `''`                                 | Fecha y hora del último backup exitoso                  |
+| `last_backup_error`          | `''`                                 | Mensaje del último fallo; vacío si el último salió bien |
+| `username`                   | _(no existe hasta el setup inicial)_ | Nombre de usuario                                       |
+| `password_hash`              | _(no existe hasta el setup inicial)_ | `scrypt` con sal                                        |
 
 Que **no exista** la fila `password_hash` significa "falta la configuración inicial".
 
@@ -207,32 +208,33 @@ Que **no exista** la fila `password_hash` significa "falta la configuración ini
 
 Todas las rutas salvo las de `auth/status`, `auth/setup` y `auth/login` exigen sesión (desde la Etapa 5; antes de eso el servidor es solo para desarrollo).
 
-| Método y ruta | Qué hace |
-|---|---|
-| `GET /api/health` | `{ ok: true }` |
-| `GET /api/auth/status` | `{ needsSetup, authenticated }` |
-| `POST /api/auth/setup` | `{ username, password }`: crea las credenciales. Solo funciona si todavía no existen; si no, 409 |
-| `POST /api/auth/login` | Valida usuario y contraseña, crea la cookie de sesión |
-| `POST /api/auth/logout` | Cierra la sesión |
-| `GET /api/customers?q=&archived=` | Lista y busca. Sin `archived`: solo activos. Con `archived=1`: incluye archivados. Máximo 50 resultados |
-| `POST /api/customers` | Crea cliente. Si el DNI existe, 409 `CUSTOMER_DNI_EXISTS` con el cliente existente (incluye si está archivado) |
-| `GET /api/customers/:id` | Cliente + `nextRedeemable` + `affordableProducts` + `discountValuePesos` |
-| `PATCH /api/customers/:id` | Edita nombre, apellido, DNI, celular, fecha de nacimiento, o archiva y restaura (`archived`). Un DNI repetido responde 409 |
-| `GET /api/customers/:id/movements?limit=&before=` | Historial paginado (`limit` por defecto 20, `before` = id del último movimiento recibido). Cada item incluye `voided` y `canVoid` |
-| `POST /api/customers/:id/earn` | `{ productId }`: suma puntos de una unidad |
-| `POST /api/customers/:id/redeem` | `{ productId?, discountPoints? }`: al menos uno. Si vienen ambos exige `allow_combined_redemptions`. Todo en una única transacción |
-| `POST /api/movements/:id/void` | Anula un movimiento (y todo su grupo si es un canje combinado) |
-| `GET /api/products` | Productos activos, ordenados por `sort_order` |
-| `POST /api/products` | Crea producto (queda al final del orden) |
-| `PATCH /api/products/:id` | Edita nombre y puntos, o desactiva (`active: false`) |
-| `POST /api/products/reorder` | `{ ids: number[] }`: fija el orden de los productos activos |
-| `GET /api/admin/settings` | Ajustes de canje (nunca devuelve credenciales) |
-| `PATCH /api/admin/settings` | Actualiza modalidades de canje, valor del punto y permiso para combinar |
-| `POST /api/admin/backup` | Hace un backup ahora |
-| `GET /api/admin/export.csv?type=customers\|movements` | Exporta a CSV |
-| `POST /api/admin/credentials` | Cambia el nombre de usuario y/o la contraseña (pide la contraseña actual) |
+| Método y ruta                                         | Qué hace                                                                                                                           |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/health`                                     | `{ ok: true }`                                                                                                                     |
+| `GET /api/auth/status`                                | `{ needsSetup, authenticated }`                                                                                                    |
+| `POST /api/auth/setup`                                | `{ username, password }`: crea las credenciales. Solo funciona si todavía no existen; si no, 409                                   |
+| `POST /api/auth/login`                                | Valida usuario y contraseña, crea la cookie de sesión                                                                              |
+| `POST /api/auth/logout`                               | Cierra la sesión                                                                                                                   |
+| `GET /api/customers?q=&archived=`                     | Lista y busca. Sin `archived`: solo activos. Con `archived=1`: incluye archivados. Máximo 50 resultados                            |
+| `POST /api/customers`                                 | Crea cliente. Si el DNI existe, 409 `CUSTOMER_DNI_EXISTS` con el cliente existente (incluye si está archivado)                     |
+| `GET /api/customers/:id`                              | Cliente + `nextRedeemable` + `affordableProducts` + `discountValuePesos`                                                           |
+| `PATCH /api/customers/:id`                            | Edita nombre, apellido, DNI, celular, fecha de nacimiento, o archiva y restaura (`archived`). Un DNI repetido responde 409         |
+| `GET /api/customers/:id/movements?limit=&before=`     | Historial paginado (`limit` por defecto 20, `before` = id del último movimiento recibido). Cada item incluye `voided` y `canVoid`  |
+| `POST /api/customers/:id/earn`                        | `{ productId }`: suma puntos de una unidad                                                                                         |
+| `POST /api/customers/:id/redeem`                      | `{ productId?, discountPoints? }`: al menos uno. Si vienen ambos exige `allow_combined_redemptions`. Todo en una única transacción |
+| `POST /api/movements/:id/void`                        | Anula un movimiento (y todo su grupo si es un canje combinado)                                                                     |
+| `GET /api/products`                                   | Productos activos, ordenados por `sort_order`                                                                                      |
+| `POST /api/products`                                  | Crea producto (queda al final del orden)                                                                                           |
+| `PATCH /api/products/:id`                             | Edita nombre y puntos, o desactiva (`active: false`)                                                                               |
+| `POST /api/products/reorder`                          | `{ ids: number[] }`: fija el orden de los productos activos                                                                        |
+| `GET /api/admin/settings`                             | Ajustes de canje (nunca devuelve credenciales)                                                                                     |
+| `PATCH /api/admin/settings`                           | Actualiza modalidades de canje, valor del punto y permiso para combinar                                                            |
+| `POST /api/admin/backup`                              | Hace un backup ahora                                                                                                               |
+| `GET /api/admin/export.csv?type=customers\|movements` | Exporta a CSV                                                                                                                      |
+| `POST /api/admin/credentials`                         | Cambia el nombre de usuario y/o la contraseña (pide la contraseña actual)                                                          |
 
 Formas de las respuestas (tipos en `shared/src/types.ts`):
+
 - `GET /api/customers/:id` → `{ customer, nextRedeemable: { product, missingPoints } | null, affordableProducts: Product[], discountValuePesos: number | null }`. `affordableProducts` está vacío si el canje por producto está desactivado. `discountValuePesos` es `puntos × valor del punto`, o `null` si el canje por descuento está desactivado o sin valor cargado.
 - `earn` → `{ customer, movement }`.
 - `redeem` → `{ customer, movements: Movement[] }`.
@@ -242,25 +244,25 @@ Formas de las respuestas (tipos en `shared/src/types.ts`):
 
 Formato: `{ error: { code, message, details? } }`, con `message` en español listo para mostrar. Los códigos viven en `shared/src/errors.ts` y los mensajes y el estado HTTP en `server/src/domain/errors.ts`.
 
-| Código | HTTP | Cuándo |
-|---|---|---|
-| `VALIDATION_ERROR` | 400 | Entrada inválida (Zod) |
-| `UNAUTHORIZED` | 401 | Sin sesión o credenciales incorrectas |
-| `NOT_FOUND` | 404 | No existe el cliente, producto o movimiento |
-| `CUSTOMER_DNI_EXISTS` | 409 | DNI repetido (`details.customer` trae el existente) |
-| `SETUP_ALREADY_DONE` | 409 | Ya hay credenciales |
-| `ALREADY_VOIDED` | 409 | El movimiento ya fue anulado |
-| `CANNOT_VOID_VOID` | 422 | Se intentó anular una anulación |
-| `VOID_WINDOW_EXPIRED` | 422 | Pasaron más de 7 días |
-| `VOID_NEGATIVE_BALANCE` | 422 | Anular dejaría saldo negativo |
-| `CUSTOMER_ARCHIVED` | 422 | Operación sobre un cliente archivado |
-| `PRODUCT_INACTIVE` | 422 | Producto desactivado |
-| `PRODUCT_NOT_REDEEMABLE` | 422 | Producto sin costo de canje |
-| `REDEEM_MODE_DISABLED` | 422 | Modalidad de canje desactivada |
-| `POINT_VALUE_MISSING` | 422 | Descuento sin valor de punto cargado |
-| `COMBINED_NOT_ALLOWED` | 422 | Producto + descuento con combinación desactivada |
-| `INSUFFICIENT_POINTS` | 422 | El saldo no alcanza (para el total en canjes combinados) |
-| `RATE_LIMITED` | 429 | Demasiados intentos de login |
+| Código                   | HTTP | Cuándo                                                   |
+| ------------------------ | ---- | -------------------------------------------------------- |
+| `VALIDATION_ERROR`       | 400  | Entrada inválida (Zod)                                   |
+| `UNAUTHORIZED`           | 401  | Sin sesión o credenciales incorrectas                    |
+| `NOT_FOUND`              | 404  | No existe el cliente, producto o movimiento              |
+| `CUSTOMER_DNI_EXISTS`    | 409  | DNI repetido (`details.customer` trae el existente)      |
+| `SETUP_ALREADY_DONE`     | 409  | Ya hay credenciales                                      |
+| `ALREADY_VOIDED`         | 409  | El movimiento ya fue anulado                             |
+| `CANNOT_VOID_VOID`       | 422  | Se intentó anular una anulación                          |
+| `VOID_WINDOW_EXPIRED`    | 422  | Pasaron más de 7 días                                    |
+| `VOID_NEGATIVE_BALANCE`  | 422  | Anular dejaría saldo negativo                            |
+| `CUSTOMER_ARCHIVED`      | 422  | Operación sobre un cliente archivado                     |
+| `PRODUCT_INACTIVE`       | 422  | Producto desactivado                                     |
+| `PRODUCT_NOT_REDEEMABLE` | 422  | Producto sin costo de canje                              |
+| `REDEEM_MODE_DISABLED`   | 422  | Modalidad de canje desactivada                           |
+| `POINT_VALUE_MISSING`    | 422  | Descuento sin valor de punto cargado                     |
+| `COMBINED_NOT_ALLOWED`   | 422  | Producto + descuento con combinación desactivada         |
+| `INSUFFICIENT_POINTS`    | 422  | El saldo no alcanza (para el total en canjes combinados) |
+| `RATE_LIMITED`           | 429  | Demasiados intentos de login                             |
 
 ### 5.3 Reglas de puntos (`pointsRules.ts`)
 
@@ -365,51 +367,51 @@ Cada etapa se hace en una rama o sesión aparte y se revisa antes de pasar a la 
 > Leé `AGENTS.md`, `docs/club_puntos_spec.md` y `docs/club_puntos_arquitectura.md`. Implementá **solo** la etapa N descrita en la sección 9 de la arquitectura. No cambies nada fuera de su alcance y no adelantes trabajo de etapas posteriores. Si algo es ambiguo o los documentos se contradicen, preguntá antes de decidir. Al terminar, corré `npm run typecheck`, `npm run lint`, `npm run test` y `npm run build`, y resumime qué hiciste, qué decisiones tomaste y qué quedó pendiente.
 
 **Etapa 0: base del proyecto**
-*Alcance:* monorepo con workspaces `shared`, `server` y `web`. Servidor Fastify + TypeScript con `buildApp` y `/api/health`. Frontend Vite + React + TS + Tailwind. ESLint, Prettier, Vitest, `.nvmrc`, `engines`, `.gitignore` (incluye `data/`), la estructura de la sección 3 (carpetas y archivos vacíos o mínimos donde corresponda) y los scripts `dev`, `build`, `typecheck`, `lint`, `test`. Comprobar que `better-sqlite3` instala y abre una base en memoria.
-*No incluye:* base de datos real, rutas de negocio, pantallas.
-*Listo cuando:* `npm run dev` abre una página en blanco servida por Vite con `/api/health` respondiendo a través del proxy, `shared` se importa desde servidor y frontend, y typecheck, lint, test y build pasan.
+_Alcance:_ monorepo con workspaces `shared`, `server` y `web`. Servidor Fastify + TypeScript con `buildApp` y `/api/health`. Frontend Vite + React + TS + Tailwind. ESLint, Prettier, Vitest, `.nvmrc`, `engines`, `.gitignore` (incluye `data/`), la estructura de la sección 3 (carpetas y archivos vacíos o mínimos donde corresponda) y los scripts `dev`, `build`, `typecheck`, `lint`, `test`. Comprobar que `better-sqlite3` instala y abre una base en memoria.
+_No incluye:_ base de datos real, rutas de negocio, pantallas.
+_Listo cuando:_ `npm run dev` abre una página en blanco servida por Vite con `/api/health` respondiendo a través del proxy, `shared` se importa desde servidor y frontend, y typecheck, lint, test y build pasan.
 
 **Etapa 1: base de datos y reglas de puntos**
-*Alcance:* conexión SQLite con pragmas, `migrate.ts` con `user_version`, migración `0001_init.sql` (tablas, índices, productos iniciales y ajustes por defecto de 4.1), `services/settings.ts`, `domain/errors.ts`, `domain/names.ts`, `pointsRules.ts` con **todos** sus tests (sección 8) y los esquemas Zod y códigos de error en `shared`.
-*No incluye:* rutas de la API.
-*Listo cuando:* los tests de reglas pasan, la base se crea sola en `data/puntos.db` al arrancar con los productos y ajustes iniciales, y volver a arrancar no repite la migración.
+_Alcance:_ conexión SQLite con pragmas, `migrate.ts` con `user_version`, migración `0001_init.sql` (tablas, índices, productos iniciales y ajustes por defecto de 4.1), `services/settings.ts`, `domain/errors.ts`, `domain/names.ts`, `pointsRules.ts` con **todos** sus tests (sección 8) y los esquemas Zod y códigos de error en `shared`.
+_No incluye:_ rutas de la API.
+_Listo cuando:_ los tests de reglas pasan, la base se crea sola en `data/puntos.db` al arrancar con los productos y ajustes iniciales, y volver a arrancar no repite la migración.
 
 **Etapa 2: API de clientes, productos, movimientos y ajustes**
-*Alcance:* todas las rutas de la sección 5.1 **salvo** `auth/*`, `admin/backup`, `admin/export.csv` y `admin/credentials`. Incluye `GET/PATCH /api/admin/settings`, restaurar clientes, paginación del historial, `reorder` de productos, transacciones y errores en español según 5.2.
-*Listo cuando:* los tests de API pasan (DNI duplicado y archivado, saldo coherente, canje simple y combinado, anulaciones y grupos, canje sin saldo, ajustes por defecto).
+_Alcance:_ todas las rutas de la sección 5.1 **salvo** `auth/*`, `admin/backup`, `admin/export.csv` y `admin/credentials`. Incluye `GET/PATCH /api/admin/settings`, restaurar clientes, paginación del historial, `reorder` de productos, transacciones y errores en español según 5.2.
+_Listo cuando:_ los tests de API pasan (DNI duplicado y archivado, saldo coherente, canje simple y combinado, anulaciones y grupos, canje sin saldo, ajustes por defecto).
 
 **Etapa 3: pantalla Clientes y ajustes de canje**
-*Alcance:* `CustomersPage` fiel a la demo (`docs/demo/` si existe): alta, buscador sin tildes, "Ver archivados" y "Restaurar cliente", tarjeta del cliente, botones de compra, `RedeemPanel` en sus tres variantes, historial con anular (aviso de grupo), editar y archivar, toasts y confirmaciones. Incluye una `SettingsPage` **solo con la sección "Canjes"** (modalidades, valor del punto, combinar), para poder probar todo el canje.
-*No incluye:* pestaña de productos editable, login, backups.
-*Listo cuando:* se cumplen los criterios de aceptación de la spec que involucran clientes, puntos, canje (simple y combinado), configuración de canjes y anulación.
+_Alcance:_ `CustomersPage` fiel a la demo (`docs/demo/` si existe): alta, buscador sin tildes, "Ver archivados" y "Restaurar cliente", tarjeta del cliente, botones de compra, `RedeemPanel` en sus tres variantes, historial con anular (aviso de grupo), editar y archivar, toasts y confirmaciones. Incluye una `SettingsPage` **solo con la sección "Canjes"** (modalidades, valor del punto, combinar), para poder probar todo el canje.
+_No incluye:_ pestaña de productos editable, login, backups.
+_Listo cuando:_ se cumplen los criterios de aceptación de la spec que involucran clientes, puntos, canje (simple y combinado), configuración de canjes y anulación.
 
 **Etapa 4: pantalla Productos y puntos**
-*Alcance:* `ProductsPage` con edición por fila, agregar, ordenar con flechas y desactivar.
-*Listo cuando:* cambiar puntos de un producto se refleja en las compras nuevas y no altera el historial ni los saldos.
+_Alcance:_ `ProductsPage` con edición por fila, agregar, ordenar con flechas y desactivar.
+_Listo cuando:_ cambiar puntos de un producto se refleja en las compras nuevas y no altera el historial ni los saldos.
 
 **Etapa 5: acceso y seguridad**
-*Alcance:* `auth/*` completo, `SetupPage` y `LoginPage`, cookie de sesión, sesiones en memoria, límite de intentos, validación de `Host`, escucha solo en `127.0.0.1`, botón "Salir", manejo de 401 en el frontend, `cli/reset-password.ts` y `scripts/recuperar-clave.bat`. Todas las rutas de datos pasan a exigir sesión.
-*Listo cuando:* sin sesión ninguna ruta de datos responde, el setup inicial funciona una sola vez, "Salir" funciona, la recuperación cambia la contraseña sin tocar datos y los tests de autenticación pasan.
+_Alcance:_ `auth/*` completo, `SetupPage` y `LoginPage`, cookie de sesión, sesiones en memoria, límite de intentos, validación de `Host`, escucha solo en `127.0.0.1`, botón "Salir", manejo de 401 en el frontend, `cli/reset-password.ts` y `scripts/recuperar-clave.bat`. Todas las rutas de datos pasan a exigir sesión.
+_Listo cuando:_ sin sesión ninguna ruta de datos responde, el setup inicial funciona una sola vez, "Salir" funciona, la recuperación cambia la contraseña sin tocar datos y los tests de autenticación pasan.
 
 **Etapa 6: ajustes completos, backup y exportación**
-*Alcance:* completar `SettingsPage` (backups con fecha del último y aviso de fallo, exportar CSV, cambiar usuario y contraseña), `services/backup.ts` (automático diario y manual con `db.backup()`, rotación de 30 copias), `services/csv.ts`, banda de aviso en la pantalla principal si el último backup falló, y las rutas `admin/backup`, `admin/export.csv` y `admin/credentials`.
-*Listo cuando:* se genera un backup fechado que, restaurado en otra carpeta, abre con los mismos datos, y el aviso aparece y desaparece según corresponda.
+_Alcance:_ completar `SettingsPage` (backups con fecha del último y aviso de fallo, exportar CSV, cambiar usuario y contraseña), `services/backup.ts` (automático diario y manual con `db.backup()`, rotación de 30 copias), `services/csv.ts`, banda de aviso en la pantalla principal si el último backup falló, y las rutas `admin/backup`, `admin/export.csv` y `admin/credentials`.
+_Listo cuando:_ se genera un backup fechado que, restaurado en otra carpeta, abre con los mismos datos, y el aviso aparece y desaparece según corresponda.
 
 **Etapa 7: empaquetado e instalación en el local**
-*Alcance:* `build-portable.ts`, `iniciar.bat`, `detener.bat`, accesos directos, README con instalación, restauración, recuperación de acceso y uso de Drive para escritorio.
-*Listo cuando:* en una PC sin Node, doble click abre la app como ventana de programa y los datos persisten tras reiniciar la PC.
+_Alcance:_ `build-portable.ts`, `iniciar.bat`, `detener.bat`, accesos directos, README con instalación, restauración, recuperación de acceso y uso de Drive para escritorio.
+_Listo cuando:_ en una PC sin Node, doble click abre la app como ventana de programa y los datos persisten tras reiniciar la PC.
 
 ## 10. Riesgos y consideraciones de evolución
 
-| Tema | Riesgo / pendiente | Plan |
-|---|---|---|
-| Pérdida de datos | Un solo archivo en una sola PC | Backups diarios a carpeta de Drive + prueba de restauración antes de entregar |
-| Drive y archivo en uso | Sincronizar el archivo vivo puede corromperlo | La base vive fuera de Drive; solo se copian backups |
-| Módulo nativo | `better-sqlite3` necesita un binario que coincida con la versión de Node y con Windows x64 | Fijar la versión de Node; probar el portable en una PC sin Node |
-| Navegador del local | Modo `--app` requiere Edge o Chrome | Edge viene con Windows; verificar en la PC real |
-| Antivirus / bloqueo | `.bat` y `node.exe` portable pueden ser marcados | Probar en la PC del local; alternativa: empaquetar con Tauri más adelante |
-| Sesiones en memoria | Un reinicio del servidor cierra la sesión | Aceptable en la v1 (se vuelve a entrar con usuario y contraseña) |
-| Datos personales | DNI y celular de clientes | Contraseña, usuario de Windows con clave, cuenta de Drive propia con verificación en dos pasos |
-| Sin registro por empleado | No se sabe quién hizo cada operación | Fuera de la v1; el historial guarda fecha y detalle, no autor |
-| Fudo | No se sabe si ofrece API | Averiguar; fuera de la v1 |
-| Crecer a varias cajas o acceso remoto | La arquitectura actual es de una sola PC | Si hace falta, el mismo servidor puede escuchar en la red local y/o migrar a Postgres |
+| Tema                                  | Riesgo / pendiente                                                                         | Plan                                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Pérdida de datos                      | Un solo archivo en una sola PC                                                             | Backups diarios a carpeta de Drive + prueba de restauración antes de entregar                  |
+| Drive y archivo en uso                | Sincronizar el archivo vivo puede corromperlo                                              | La base vive fuera de Drive; solo se copian backups                                            |
+| Módulo nativo                         | `better-sqlite3` necesita un binario que coincida con la versión de Node y con Windows x64 | Fijar la versión de Node; probar el portable en una PC sin Node                                |
+| Navegador del local                   | Modo `--app` requiere Edge o Chrome                                                        | Edge viene con Windows; verificar en la PC real                                                |
+| Antivirus / bloqueo                   | `.bat` y `node.exe` portable pueden ser marcados                                           | Probar en la PC del local; alternativa: empaquetar con Tauri más adelante                      |
+| Sesiones en memoria                   | Un reinicio del servidor cierra la sesión                                                  | Aceptable en la v1 (se vuelve a entrar con usuario y contraseña)                               |
+| Datos personales                      | DNI y celular de clientes                                                                  | Contraseña, usuario de Windows con clave, cuenta de Drive propia con verificación en dos pasos |
+| Sin registro por empleado             | No se sabe quién hizo cada operación                                                       | Fuera de la v1; el historial guarda fecha y detalle, no autor                                  |
+| Fudo                                  | No se sabe si ofrece API                                                                   | Averiguar; fuera de la v1                                                                      |
+| Crecer a varias cajas o acceso remoto | La arquitectura actual es de una sola PC                                                   | Si hace falta, el mismo servidor puede escuchar en la red local y/o migrar a Postgres          |
